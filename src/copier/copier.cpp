@@ -5,7 +5,7 @@
 //                with copy/delete policy selection, plus a scheduler thread that
 //                re-reads the active ASIAirs each poll so enable/disable is live.
 // Created:       2026-07-22
-// Last Modified: 2026-07-22
+// Last Modified: 2026-07-23
 // Version:       0.1.0
 // License:       GPL-3.0-or-later
 // ---------------------------------------------------------------------------
@@ -125,6 +125,13 @@ CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
 
     // --- copy policy ---
     const auto to_copy = select_copy(air, uncopied, cfg_.poll_interval_s);
+
+    // Publish the current scan immediately (and periodically in the loop below) so
+    // the status isn't stale during a long cycle -- a big first sync copies many
+    // files in a single immediate cycle, and we want live total/remaining meanwhile.
+    db.upsert_status(air.id, air.host, air.enabled, res.total, res.remaining,
+                     to_copy.empty() ? (res.remaining > 0 ? "pending" : "idle") : "copying", false);
+
     for (const auto& f : to_copy) {
         if (stop_.load()) break;
         // Land frames in <incoming>/<landing>/ (the "asiair" landing zone that
@@ -140,6 +147,11 @@ CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
             db.mark_copied(air.id, f.path);
             db.log_action(air.id, "copy", f.path, "ok", "");
             ++res.copied;
+            if (res.remaining > 0) --res.remaining;
+            // Live progress after each file (cheap single-row upsert), so a long
+            // first sync shows remaining ticking down instead of sitting stale.
+            db.upsert_status(air.id, air.host, air.enabled, res.total, res.remaining,
+                             "copying", true);
         } catch (const std::exception& e) {
             std::error_code ec;
             fs::remove(part, ec);
@@ -151,7 +163,6 @@ CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
         db.log_event("airwatcher", "info", "copy",
                      air.id + ": copied " + std::to_string(res.copied) + " frame(s)");
     }
-    res.remaining -= res.copied;
 
     // --- delete policy ---
     if (air.delete_after_copy && air.delete_via != "none") {
@@ -176,7 +187,7 @@ CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
         }
     }
 
-    res.state = res.copied > 0 ? "copying" : (res.remaining > 0 ? "pending" : "idle");
+    res.state = res.remaining > 0 ? "pending" : "idle";
     db.upsert_status(air.id, air.host, air.enabled, res.total, res.remaining, res.state,
                      res.copied > 0);
     return res;

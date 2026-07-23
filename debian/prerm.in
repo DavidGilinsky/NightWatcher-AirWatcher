@@ -1,0 +1,11 @@
+#!/bin/sh
+# AirWatcher pre-removal: stop and disable the service before files go away.
+set -e
+case "$1" in
+  remove|deconfigure)
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl disable --now airwatcherd.service >/dev/null 2>&1 || true
+    fi
+    ;;
+esac
+exit 0

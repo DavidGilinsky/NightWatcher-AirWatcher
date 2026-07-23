@@ -1,0 +1,20 @@
+# Build output
+/build/
+/build-*/
+_CPack_Packages/
+*.deb
+
+# Local secrets / env (never commit)
+*.env
+airwatcher.env
+
+# TLS material (auto-generated self-signed; never commit)
+*.pem
+*.key
+tls/
+
+# Editor / OS cruft
+*.o
+*.a
+*.swp
+.DS_Store

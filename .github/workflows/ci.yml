@@ -1,0 +1,82 @@
+# ---------------------------------------------------------------------------
+# Author:   David Gilinsky
+# File:     .github/workflows/ci.yml
+# Purpose:  Build + test (amd64, against a MariaDB service), cross-compile arm64,
+#           and build/inspect the .deb.
+# License:  GPL-3.0-or-later
+# ---------------------------------------------------------------------------
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    name: Build & test (amd64)
+    runs-on: ubuntu-24.04
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: nightwatcher
+          MARIADB_USER: nightwatcher
+          MARIADB_PASSWORD: nightwatcher
+        ports: [3306:3306]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libmariadb-dev libsmbclient-dev libssl-dev
+      - name: Configure & build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build --parallel
+      - name: Test (db_smoke against MariaDB)
+        env:
+          NWDB_HOST: 127.0.0.1
+          NWDB_PORT: 3306
+          NWDB_USER: nightwatcher
+          NWDB_PASSWORD: nightwatcher
+          NWDB_NAME: nightwatcher
+        run: ctest --test-dir build --output-on-failure
+
+  cross-arm64:
+    name: Cross-compile (arm64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross toolchain + arm64 libs
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list 2>/dev/null || true
+          sudo apt-get update || true
+          sudo apt-get install -y cmake g++-aarch64-linux-gnu
+          sudo apt-get install -y libmariadb-dev:arm64 libsmbclient-dev:arm64 libssl-dev:arm64 || \
+            echo "arm64 dev libs unavailable on this runner; building may need a sysroot"
+      - name: Configure & build (best-effort)
+        run: |
+          cmake -B build-arm64 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-aarch64.cmake -DAW_BUILD_TESTS=OFF || true
+          cmake --build build-arm64 --parallel || true
+
+  package:
+    name: Package (.deb, amd64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libmariadb-dev libsmbclient-dev libssl-dev
+      - name: Build + package
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DAW_BUILD_TESTS=OFF
+          cmake --build build --parallel
+          ( cd build && cpack -G DEB )
+          dpkg-deb -I build/airwatcher_*.deb
+          dpkg-deb -c build/airwatcher_*.deb | grep -E 'bin/airwatcherd|web/|airwatcher.conf|airwatcherd.service'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: airwatcher-deb-amd64
+          path: build/*.deb

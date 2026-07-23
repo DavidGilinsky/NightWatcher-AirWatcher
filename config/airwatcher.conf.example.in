@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# Author:        David Gilinsky
+# File:          config/airwatcher.conf.example.in
+# Purpose:       Example AirWatcher daemon configuration. `@CMAKE_INSTALL_PREFIX@`
+#                is substituted at build time; installs seed a copy at
+#                /etc/airwatcher/airwatcher.conf.
+# Created:       2026-07-22
+# Last Modified: 2026-07-22
+# Version:       0.1.0
+# License:       GPL-3.0-or-later
+# ---------------------------------------------------------------------------
+# AirWatcher pulls FITS frames off ASIAir devices over SMB and drops them into
+# the NightWatcher ingest directory. Individual ASIAirs are NOT configured here
+# -- add them from the web UI (below) or with SQL; this file configures only the
+# daemon itself.
+
+[database]
+# The shared NightWatcher database (nwdb). The password is read from the
+# environment (AIRWATCHER_DB_PASSWORD, or NWDB_PASSWORD) via the .env file --
+# never stored here.
+host = 127.0.0.1
+port = 3306
+name = nightwatcher
+user = nightwatcher
+
+[web]
+# AirWatcher's own web UI + JSON API, on its OWN port (distinct from
+# NightWatcher2's 8080). bind 0.0.0.0 serves the LAN; 127.0.0.1 localhost only.
+# Set AIRWATCHER_TOKEN in the .env file to require a Bearer token.
+bind = 0.0.0.0
+port = 8686
+tls = off
+# tls_cert = /etc/airwatcher/tls/airwatcher-cert.pem   (auto-generated if tls=on)
+# tls_key  = /etc/airwatcher/tls/airwatcher-key.pem
+web_root = @CMAKE_INSTALL_PREFIX@/web
+
+[copier]
+# Where copied frames land (nightwatcher-ingest then classifies + files them).
+incoming = /astronomy/astro-imaging/incoming
+# Per-ASIAir scan/copy cadence, and the default subnet the UI's "Scan" button uses.
+poll_interval_s = 60
+stable_seconds = 5
+discover_subnet = 172.22.4.0/24
+
+[extension]
+# Register with NightWatcher2 so a read-only "AirWatcher" status tab appears in
+# its web UI while this service runs.
+register = true
+name = airwatcher
+label = AirWatcher
+heartbeat_seconds = 30

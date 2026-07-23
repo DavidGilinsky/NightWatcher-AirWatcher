@@ -1,0 +1,97 @@
+#!/bin/sh
+# AirWatcher post-install: create the service account, seed /etc config, apply the
+# debconf answers, wire up systemd, and (optionally) start.
+set -e
+
+PREFIX="@CMAKE_INSTALL_PREFIX@"
+CONF=/etc/airwatcher/airwatcher.conf
+ENVF=/etc/airwatcher/airwatcher.env
+
+HAVE_DEBCONF=false
+if [ -f /usr/share/debconf/confmodule ]; then
+  . /usr/share/debconf/confmodule
+  HAVE_DEBCONF=true
+fi
+
+# Set "KEY = VALUE" under [SECTION], section-aware ([web] and [copier] could share
+# a key name, so a blind sed would rewrite the wrong one).
+set_ini() {  # set_ini FILE SECTION KEY VALUE
+  awk -v sec="$2" -v key="$3" -v val="$4" '
+    /^[[:space:]]*\[/ { insec = ($0 ~ ("^[[:space:]]*\\[" sec "\\]")) }
+    insec && $0 ~ ("^[[:space:]]*" key "[[:space:]]*=") { print key " = " val; next }
+    { print }
+  ' "$1" > "$1.awtmp" && mv "$1.awtmp" "$1"
+}
+
+case "$1" in
+  configure)
+    # 1) Unprivileged service account.
+    if ! getent passwd airwatcher >/dev/null 2>&1; then
+      adduser --system --group --no-create-home --home /nonexistent \
+              --gecos "AirWatcher" airwatcher >/dev/null 2>&1 || true
+    fi
+
+    # 2) systemd unit into its searched path.
+    ln -sf "$PREFIX/lib/systemd/system/airwatcherd.service" \
+           /etc/systemd/system/airwatcherd.service
+
+    # 3) Seed /etc config, never clobbering an existing one.
+    mkdir -p /etc/airwatcher
+    if [ ! -e "$CONF" ]; then
+      cp "$PREFIX/share/airwatcher.conf.example" "$CONF"
+    fi
+
+    # 4) Apply the debconf answers.
+    START_NOW=false
+    if [ "$HAVE_DEBCONF" = true ]; then
+      db_get airwatcher/db_password;     DB_PASS="$RET"
+      db_get airwatcher/incoming;        INCOMING="$RET"
+      db_get airwatcher/web_bind;        WEB_BIND="$RET"
+      db_get airwatcher/web_port;        WEB_PORT="$RET"
+      db_get airwatcher/web_token;       WEB_TOKEN="$RET"
+      db_get airwatcher/discover_subnet; SUBNET="$RET"
+      db_get airwatcher/archive_group;   GRP="$RET"
+      db_get airwatcher/start_now;       START_NOW="$RET"
+      db_stop  # release the protocol before any plain output
+
+      if [ -f "$CONF" ]; then
+        [ -n "$INCOMING" ] && set_ini "$CONF" copier incoming "$INCOMING"
+        [ -n "$SUBNET" ]   && set_ini "$CONF" copier discover_subnet "$SUBNET"
+        [ -n "$WEB_BIND" ] && set_ini "$CONF" web bind "$WEB_BIND"
+        [ -n "$WEB_PORT" ] && set_ini "$CONF" web port "$WEB_PORT"
+      fi
+
+      # Secrets -> env file (0640, read by the systemd unit).
+      umask 027
+      tmp=$(mktemp "${ENVF}.XXXXXX")
+      {
+        if [ -n "$DB_PASS" ]; then printf 'AIRWATCHER_DB_PASSWORD=%s\n' "$DB_PASS"; fi
+        if [ -n "$WEB_TOKEN" ]; then printf 'AIRWATCHER_TOKEN=%s\n' "$WEB_TOKEN"; fi
+      } > "$tmp"
+      mv "$tmp" "$ENVF"
+      chown root:airwatcher "$ENVF" 2>/dev/null || true
+      chmod 0640 "$ENVF"
+
+      # Grant the service account access to the incoming directory via a group.
+      if [ -n "$GRP" ] && getent group "$GRP" >/dev/null 2>&1; then
+        adduser airwatcher "$GRP" >/dev/null 2>&1 || true
+      fi
+    fi
+
+    # 5) systemd: load + enable, and start if requested.
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl daemon-reload >/dev/null 2>&1 || true
+      systemctl enable airwatcherd.service >/dev/null 2>&1 || true
+      if [ "${START_NOW:-false}" = true ]; then
+        systemctl restart airwatcherd.service >/dev/null 2>&1 \
+          && echo "airwatcher: service started -- web UI on ${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8686}" \
+          || echo "airwatcher: service failed to start; check 'journalctl -u airwatcherd'."
+      fi
+    fi
+
+    echo "airwatcher: make sure 'airwatcher' can write ${INCOMING:-the incoming dir},"
+    echo "  then add ASIAirs from the web UI. Re-run setup: dpkg-reconfigure airwatcher"
+    ;;
+esac
+
+exit 0

@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------------------
+# Author:        David Gilinsky
+# File:          systemd/airwatcherd.service.in
+# Purpose:       systemd service unit for airwatcherd. `@CMAKE_INSTALL_PREFIX@`
+#                is substituted at build time.
+# Created:       2026-07-22
+# Last Modified: 2026-07-22
+# Version:       0.1.0
+# License:       GPL-3.0-or-later
+# ---------------------------------------------------------------------------
+[Unit]
+Description=AirWatcher -- pull FITS frames off ASIAir devices into the NightWatcher ingest tree
+Documentation=https://github.com/DavidGilinsky/NightWatcher-AirWatcher
+After=network-online.target mariadb.service remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/airwatcherd --config /etc/airwatcher/airwatcher.conf
+Restart=on-failure
+RestartSec=10
+
+# Runs as an unprivileged account. It needs write access to the copier's
+# `incoming` directory (grant it via a shared group at install time).
+User=airwatcher
+Group=airwatcher
+
+# Database password and any other secrets live here, mode 0640, not in git:
+#   /etc/airwatcher/airwatcher.env  ->  AIRWATCHER_DB_PASSWORD=... [ AIRWATCHER_TOKEN=... ]
+EnvironmentFile=-/etc/airwatcher/airwatcher.env
+
+# Runtime hardening (kept light: `incoming` is configurable and may live on an
+# NFS mount, so filesystem access is governed by the airwatcher account's groups).
+NoNewPrivileges=yes
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

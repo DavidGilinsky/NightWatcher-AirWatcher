@@ -1,0 +1,57 @@
+Template: airwatcher/db_password
+Type: password
+Description: NightWatcher database password:
+ AirWatcher stores ASIAir config and copy status in the shared NightWatcher
+ (nwdb) database as the 'nightwatcher' user. This password is written to
+ /etc/airwatcher/airwatcher.env (mode 0640, read by the service) and is never
+ stored in the package or in git.
+ .
+ Leave blank to set it up yourself later, then re-run: dpkg-reconfigure airwatcher
+
+Template: airwatcher/incoming
+Type: string
+Default: /astronomy/astro-imaging/incoming
+Description: Directory to copy ASIAir frames into:
+ Frames pulled off the ASIAirs are written here, where nightwatcher-ingest then
+ classifies and files them. The 'airwatcher' service account needs write access
+ to it (see the group question below).
+
+Template: airwatcher/web_bind
+Type: string
+Default: 0.0.0.0
+Description: AirWatcher web UI bind address:
+ Address for AirWatcher's own web UI + API (a different port from NightWatcher2).
+ 0.0.0.0 serves the whole network; 127.0.0.1 serves only this machine.
+
+Template: airwatcher/web_port
+Type: string
+Default: 8686
+Description: AirWatcher web UI port:
+
+Template: airwatcher/web_token
+Type: password
+Description: Web UI access token (optional):
+ If set, the web UI/API require this token (entered once in the browser). Leave
+ blank for no token. Recommended when binding to 0.0.0.0 on an untrusted network.
+
+Template: airwatcher/discover_subnet
+Type: string
+Default: 172.22.4.0/24
+Description: Default subnet for the ASIAir discovery scan:
+ The web UI's "Scan" button and the daemon default to this CIDR when looking for
+ ASIAirs (by their control port 4400).
+
+Template: airwatcher/archive_group
+Type: string
+Description: Group to grant the 'airwatcher' service account (optional):
+ The service runs as the unprivileged 'airwatcher' user, which needs write
+ access to the incoming directory above. If that directory is group-accessible,
+ name the group to add 'airwatcher' to it. Leave blank to arrange access
+ yourself (ownership or a filesystem ACL).
+
+Template: airwatcher/start_now
+Type: boolean
+Default: true
+Description: Start the AirWatcher service now?
+ Safe once the database is reachable. You can add ASIAirs afterwards from the web
+ UI at http://<host>:<port>/.

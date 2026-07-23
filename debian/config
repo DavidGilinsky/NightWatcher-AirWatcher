@@ -1,0 +1,14 @@
+#!/bin/sh
+# debconf config script: ask AirWatcher's install-time configuration questions.
+set -e
+. /usr/share/debconf/confmodule
+
+db_input high   airwatcher/db_password     || true
+db_input high   airwatcher/incoming        || true
+db_input high   airwatcher/web_bind        || true
+db_input medium airwatcher/web_port        || true
+db_input medium airwatcher/web_token       || true
+db_input medium airwatcher/discover_subnet || true
+db_input medium airwatcher/archive_group   || true
+db_input medium airwatcher/start_now       || true
+db_go || true

@@ -1,0 +1,19 @@
+#!/bin/sh
+# AirWatcher post-removal: drop the unit symlink; on purge also remove config,
+# the service account, and the debconf answers.
+set -e
+case "$1" in
+  remove|purge)
+    rm -f /etc/systemd/system/airwatcherd.service
+    if command -v systemctl >/dev/null 2>&1; then systemctl daemon-reload >/dev/null 2>&1 || true; fi
+    ;;
+esac
+if [ "$1" = purge ]; then
+  rm -rf /etc/airwatcher
+  if command -v deluser >/dev/null 2>&1; then deluser --system airwatcher >/dev/null 2>&1 || true; fi
+  if [ -f /usr/share/debconf/confmodule ]; then
+    . /usr/share/debconf/confmodule
+    db_purge
+  fi
+fi
+exit 0

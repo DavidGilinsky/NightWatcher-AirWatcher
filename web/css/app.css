@@ -1,0 +1,69 @@
+/* -------------------------------------------------------------------------
+   Author:   David Gilinsky
+   File:     web/css/app.css
+   Purpose:  AirWatcher web UI styles (dark theme, no external fonts/CDNs).
+   License:  GPL-3.0-or-later
+   ------------------------------------------------------------------------- */
+:root {
+  --bg: #0e1116; --panel: #171b22; --panel2: #1e232c; --border: #2a313c;
+  --fg: #d7dde5; --muted: #8a93a0; --accent: #4aa3ff; --accent2: #2b7fd4;
+  --ok: #3fb950; --warn: #d29922; --err: #f85149;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+header {
+  display: flex; align-items: center; gap: 1.5rem; padding: .6rem 1rem;
+  background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.brand { font-weight: 700; font-size: 1.15rem; }
+.brand .sub { font-weight: 400; font-size: .8rem; color: var(--muted); margin-left: .4rem; }
+nav { display: flex; gap: .3rem; }
+nav button {
+  background: none; border: 1px solid transparent; color: var(--muted);
+  padding: .35rem .8rem; border-radius: 6px; cursor: pointer; font-size: .9rem;
+}
+nav button:hover { color: var(--fg); background: var(--panel2); }
+nav button.active { color: var(--fg); background: var(--panel2); border-color: var(--border); }
+main { padding: 1rem; max-width: 1100px; margin: 0 auto; }
+footer { padding: .5rem 1rem; border-top: 1px solid var(--border); font-size: .8rem; }
+h2 { margin: .2rem 0 .8rem; font-size: 1.15rem; }
+h3 { margin: 1rem 0 .5rem; font-size: 1rem; }
+.muted { color: var(--muted); }
+.row { display: flex; gap: .7rem; align-items: center; flex-wrap: wrap; margin: .5rem 0; }
+.spacer { flex: 1; }
+.scroll { overflow-x: auto; }
+
+table { border-collapse: collapse; width: 100%; margin: .3rem 0; }
+th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: .82rem; text-transform: uppercase; letter-spacing: .03em; }
+tbody tr:hover { background: var(--panel); }
+
+button.btn {
+  background: var(--accent2); color: #fff; border: 1px solid var(--accent2);
+  padding: .4rem .9rem; border-radius: 6px; cursor: pointer; font-size: .88rem;
+}
+button.btn:hover { background: var(--accent); }
+button.btn.ghost { background: none; color: var(--fg); border-color: var(--border); }
+button.btn.ghost:hover { background: var(--panel2); }
+button.btn.sm { padding: .2rem .55rem; font-size: .8rem; }
+button.btn.danger { background: none; color: var(--err); border-color: var(--border); }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: .6rem 0; }
+label { display: block; margin: .5rem 0 .15rem; color: var(--muted); font-size: .82rem; }
+input, select, textarea {
+  width: 100%; background: var(--panel2); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 6px; padding: .4rem .5rem; font: inherit;
+}
+input[type=checkbox] { width: auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .3rem .9rem; }
+.pill { padding: .1rem .5rem; border-radius: 999px; font-size: .78rem; border: 1px solid var(--border); }
+.pill.on { color: var(--ok); } .pill.off { color: var(--muted); }
+.state-copying { color: var(--accent); } .state-idle { color: var(--muted); }
+.state-pending { color: var(--warn); } .state-unreachable, .state-error { color: var(--err); }
+.msg { padding: .5rem .7rem; border-radius: 6px; margin: .5rem 0; }
+.msg.err { background: #2a1416; color: var(--err); border: 1px solid #612b2b; }
+.msg.ok { background: #12240f; color: var(--ok); border: 1px solid #2f5f2f; }
+code { background: var(--panel2); padding: .05rem .3rem; border-radius: 4px; font-size: .85em; }

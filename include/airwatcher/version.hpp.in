@@ -1,0 +1,17 @@
+// ---------------------------------------------------------------------------
+// Author:        David Gilinsky
+// File:          include/airwatcher/version.hpp.in
+// Purpose:       CMake-configured template for the project version header.
+// Created:       2026-07-22
+// Last Modified: 2026-07-22
+// Version:       0.1.0
+// License:       GPL-3.0-or-later
+// ---------------------------------------------------------------------------
+#pragma once
+// This header is generated from version.hpp.in by CMake (configure_file).
+// Do not edit the generated copy under the build directory.
+
+#define AIRWATCHER_VERSION       "@PROJECT_VERSION@"
+#define AIRWATCHER_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define AIRWATCHER_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define AIRWATCHER_VERSION_PATCH @PROJECT_VERSION_PATCH@

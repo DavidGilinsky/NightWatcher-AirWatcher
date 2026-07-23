@@ -87,7 +87,7 @@ async function viewStatus(root) {
 async function viewAsiairs(root) {
   root.append(el('h2', {}, 'ASIAirs'));
   root.append(el('div', { class: 'row' },
-    el('button', { class: 'btn', onclick: () => showForm(root, null) }, '+ Add ASIAir'),
+    el('button', { class: 'btn', onclick: () => showForm(root, null, false) }, '+ Add ASIAir'),
     el('button', { class: 'btn ghost', onclick: () => showDiscover(root) }, 'Scan subnet…'),
     el('span', { class: 'spacer' }),
     el('button', { class: 'btn ghost sm', onclick: () => render() }, 'Refresh')));
@@ -110,7 +110,7 @@ async function viewAsiairs(root) {
       el('td', {}, el('div', { class: 'row', style: 'margin:0;gap:.3rem' },
         el('button', { class: 'btn ghost sm', onclick: () => toggle(a) }, a.enabled ? 'Disable' : 'Enable'),
         el('button', { class: 'btn ghost sm', onclick: () => test(a, root) }, 'Test'),
-        el('button', { class: 'btn ghost sm', onclick: () => showForm(root, a) }, 'Edit'),
+        el('button', { class: 'btn ghost sm', onclick: () => showForm(root, a, true) }, 'Edit'),
         el('button', { class: 'btn danger sm', onclick: () => del(a) }, 'Delete'))),
     ]));
 }
@@ -145,9 +145,9 @@ async function test(a, root) {
 
 function field(label, input) { return el('div', {}, el('label', {}, label), input); }
 
-function showForm(root, a) {
+function showForm(root, a, editing) {
   const h = $('aw-form-holder'); h.innerHTML = '';
-  const editing = !!a;
+  if (editing === undefined) editing = !!a;  // callers pass it explicitly; discovery "Use" pre-fills a NEW form
   a = a || { copy_mode: 'immediate', delete_via: 'none', delete_mode: 'immediate', smb_share: 'EMMC Images' };
   const inp = (name, val, attrs) => el('input', Object.assign({ name, value: val != null ? val : '' }, attrs || {}));
   const sel = (name, val, opts) => {
@@ -236,7 +236,7 @@ async function showDiscover(root) {
 
 function useCandidate(root, d) {
   const base = d.name && /asiair/i.test(d.name) ? d.name.split('.')[0] : ('air-' + d.ip.replace(/\./g, '-'));
-  showForm(root, { id: base, name: d.name || ('ASIAir ' + d.ip), host: d.ip, smb_share: 'EMMC Images', copy_mode: 'immediate', delete_via: 'none', delete_mode: 'immediate' });
+  showForm(root, { id: base, name: d.name || ('ASIAir ' + d.ip), host: d.ip, smb_share: 'EMMC Images', copy_mode: 'immediate', delete_via: 'none', delete_mode: 'immediate' }, false);
 }
 
 // ---------------------------------------------------------------- Log

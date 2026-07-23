@@ -127,7 +127,11 @@ CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
     const auto to_copy = select_copy(air, uncopied, cfg_.poll_interval_s);
     for (const auto& f : to_copy) {
         if (stop_.load()) break;
-        const fs::path dest = fs::path(cfg_.incoming) / air.id / f.path;
+        // Land frames in <incoming>/<landing>/ (the "asiair" landing zone that
+        // nightwatcher-ingest watches), preserving the ASIAir's own path below it.
+        fs::path dest = fs::path(cfg_.incoming);
+        if (!cfg_.landing.empty()) dest /= cfg_.landing;
+        dest /= f.path;
         const std::string part = dest.string() + ".part";
         try {
             fs::create_directories(dest.parent_path());

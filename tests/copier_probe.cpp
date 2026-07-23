@@ -53,11 +53,15 @@ int main() {
         std::printf("cycle2: total=%lld remaining=%lld copied=%d state=%s (idempotent)\n",
                     r2.total, r2.remaining, r2.copied, r2.state.c_str());
 
-        int on_disk = 0;
-        for (const auto& e : fs::recursive_directory_iterator(inc)) {
-            if (e.is_regular_file() && e.path().extension() != ".part") ++on_disk;
+        // Frames must land under the "asiair" landing subdir of incoming.
+        const fs::path landing = fs::path(inc) / "asiair";
+        int under_landing = 0;
+        if (fs::exists(landing)) {
+            for (const auto& e : fs::recursive_directory_iterator(landing)) {
+                if (e.is_regular_file() && e.path().extension() != ".part") ++under_landing;
+            }
         }
-        std::printf("files landed in incoming: %d (under %s/%s/)\n", on_disk, inc.c_str(), ID.c_str());
+        std::printf("files landed under %s : %d\n", landing.c_str(), under_landing);
 
         // cleanup
         db.remove_asiair(ID);
@@ -65,7 +69,7 @@ int main() {
         fs::remove_all(inc);
 
         const bool ok = r1.total == 4 && r1.copied == 4 && r1.remaining == 0 &&
-                        r2.copied == 0 && r2.remaining == 0 && on_disk == 4;
+                        r2.copied == 0 && r2.remaining == 0 && under_landing == 4;
         std::printf("copier_probe: %s\n", ok ? "OK" : "FAIL");
         return ok ? 0 : 1;
     } catch (const std::exception& e) {

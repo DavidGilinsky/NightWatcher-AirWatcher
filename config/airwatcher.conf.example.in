@@ -35,8 +35,11 @@ tls = off
 web_root = @CMAKE_INSTALL_PREFIX@/web
 
 [copier]
-# Where copied frames land (nightwatcher-ingest then classifies + files them).
+# The nightwatcher-ingest landing root, and the sub-directory under it that ASIAir
+# frames are copied into: frames land in <incoming>/<landing>/ (set landing = ""
+# to copy straight into <incoming>). nightwatcher-ingest watches recursively.
 incoming = /astronomy/astro-imaging/incoming
+landing = asiair
 # Per-ASIAir scan/copy cadence, and the default subnet the UI's "Scan" button uses.
 poll_interval_s = 60
 stable_seconds = 5

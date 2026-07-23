@@ -75,6 +75,7 @@ Config Config::load(const std::string& path) {
             else if (key == "web_root") cfg.web_root = value;
         } else if (section == "copier") {
             if (key == "incoming") cfg.incoming = value;
+            else if (key == "landing") cfg.landing = value;
             else if (key == "poll_interval_s") cfg.poll_interval_s = std::stoi(value);
             else if (key == "stable_seconds") cfg.stable_seconds = std::stoi(value);
             else if (key == "discover_subnet") cfg.discover_subnet = value;

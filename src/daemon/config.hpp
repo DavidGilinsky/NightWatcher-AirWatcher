@@ -39,7 +39,8 @@ struct Config {
     std::string web_root = "/usr/local/airwatcher/web";  // static UI directory
 
     // --- copier ---
-    std::string incoming = "/astronomy/astro-imaging/incoming";  // where copied frames land
+    std::string incoming = "/astronomy/astro-imaging/incoming";  // ingest landing root
+    std::string landing = "asiair";  // subdir of `incoming` frames are copied into ("" = incoming itself)
     int poll_interval_s = 60;     // per-ASIAir scan/copy cadence
     int stable_seconds = 5;       // require a remote file's size be stable this long
     std::string discover_subnet;  // default CIDR for the discovery scan (optional)

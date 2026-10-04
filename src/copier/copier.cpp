@@ -5,8 +5,8 @@
 //                with copy/delete policy selection, plus a scheduler thread that
 //                re-reads the active ASIAirs each poll so enable/disable is live.
 // Created:       2026-07-22
-// Last Modified: 2026-07-23
-// Version:       0.1.0
+// Last Modified: 2026-10-04
+// Version:       0.1.1
 // License:       GPL-3.0-or-later
 // ---------------------------------------------------------------------------
 #include "copier.hpp"
@@ -19,6 +19,7 @@
 #include <set>
 #include <thread>
 
+#include "fits_check.hpp"
 #include "logging.hpp"
 #include "smb_client.hpp"
 
@@ -31,6 +32,16 @@ namespace {
 // Image roots on the ASIAir share to scan for FITS.
 const std::vector<std::string> kImageRoots = {"Autorun", "Plan"};
 const std::vector<std::string> kFitsSuffixes = {".fit", ".fits"};
+
+// A landed copy that fails verification is discarded and retried once the
+// source has settled again. After this many failures it is landed anyway, with
+// a warning event, so nothing is lost: nightwatcher-ingest's own structure
+// check quarantines a torn frame and says why.
+constexpr int kMaxVerifyAttempts = 5;
+
+std::string seen_key(const std::string& air_id, const std::string& path) {
+    return air_id + "\n" + path;
+}
 
 // True if the host's local wall-clock is within [hhmm, hhmm+window) today.
 bool at_time_of_day(const std::string& hhmm, int window_s) {
@@ -85,6 +96,39 @@ Copier::Copier(Config cfg, DbConfig dbcfg) : cfg_(std::move(cfg)), dbcfg_(std::m
 
 Copier::~Copier() { stop(); }
 
+bool Copier::settled(const std::string& air_id, const SmbEntry& e,
+                     std::chrono::steady_clock::time_point now) {
+    std::lock_guard<std::mutex> lock(seen_mtx_);
+    Seen& s = seen_[seen_key(air_id, e.path)];
+    if (s.first_seen == std::chrono::steady_clock::time_point{} ||
+        s.size != e.size || s.mtime != e.mtime) {
+        s.size = e.size;
+        s.mtime = e.mtime;
+        s.first_seen = now;
+        return false;
+    }
+    return now - s.first_seen >= std::chrono::seconds(std::max(0, cfg_.stable_seconds));
+}
+
+int Copier::verify_failed(const std::string& air_id, const std::string& path) {
+    std::lock_guard<std::mutex> lock(seen_mtx_);
+    Seen& s = seen_[seen_key(air_id, path)];
+    s.first_seen = std::chrono::steady_clock::now();   // must settle again
+    return ++s.failures;
+}
+
+void Copier::prune_seen(const std::string& air_id, const std::vector<SmbEntry>& current) {
+    std::set<std::string> keep;
+    for (const auto& f : current) keep.insert(seen_key(air_id, f.path));
+    const std::string prefix = air_id + "\n";
+    std::lock_guard<std::mutex> lock(seen_mtx_);
+    for (auto it = seen_.begin(); it != seen_.end();) {
+        const bool ours = it->first.compare(0, prefix.size(), prefix) == 0;
+        if (ours && keep.find(it->first) == keep.end()) it = seen_.erase(it);
+        else ++it;
+    }
+}
+
 CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
     CycleResult res;
     const std::string share = air.smb_share.empty() ? "EMMC Images" : air.smb_share;
@@ -113,18 +157,22 @@ CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
                        std::make_move_iterator(part.end()));
     }
     for (const auto& f : current) db.mark_seen(air.id, f.path, f.size);
+    prune_seen(air.id, current);
 
     const auto copied_vec = db.copied_paths(air.id);
     const std::set<std::string> copied_set(copied_vec.begin(), copied_vec.end());
     std::vector<SmbEntry> uncopied;
+    std::vector<SmbEntry> ready;      // uncopied AND unchanged for stable_seconds
     for (const auto& f : current) {
-        if (copied_set.find(f.path) == copied_set.end()) uncopied.push_back(f);
+        if (copied_set.find(f.path) != copied_set.end()) continue;
+        uncopied.push_back(f);
+        if (settled(air.id, f)) ready.push_back(f);
     }
     res.total = static_cast<long long>(current.size());
     res.remaining = static_cast<long long>(uncopied.size());
 
-    // --- copy policy ---
-    const auto to_copy = select_copy(air, uncopied, cfg_.poll_interval_s);
+    // --- copy policy (only settled files are offered; the rest stay pending) ---
+    const auto to_copy = select_copy(air, ready, cfg_.poll_interval_s);
 
     // Publish the current scan immediately (and periodically in the loop below) so
     // the status isn't stale during a long cycle -- a big first sync copies many
@@ -142,10 +190,34 @@ CycleResult Copier::run_once(Database& db, const AsiairRow& air) {
         const std::string part = dest.string() + ".part";
         try {
             fs::create_directories(dest.parent_path());
-            smb->copy_to(f.path, part);
+            const long long got = smb->copy_to(f.path, part);
+            // Verify before landing: the source must not have changed under us,
+            // and what landed must be one whole FITS file.
+            std::string why;
+            const SmbEntry after = smb->stat(f.path);
+            if (got != f.size || after.size != f.size || after.mtime != f.mtime) {
+                why = "remote file changed during copy";
+            } else if (!fits_whole(part, why)) {
+                why = "landed copy is not a whole FITS file: " + why;
+            }
+            if (!why.empty()) {
+                const int n = verify_failed(air.id, f.path);
+                if (n < kMaxVerifyAttempts) {
+                    std::error_code ec;
+                    fs::remove(part, ec);
+                    db.log_action(air.id, "copy", f.path, "retry",
+                                  why + " (attempt " + std::to_string(n) + ")");
+                    log_warn(air.id + ": " + f.path + ": " + why + "; retry once it settles");
+                    continue;
+                }
+                db.log_event("airwatcher", "warning", "copy",
+                             air.id + ": " + f.path + ": landed unverified after " +
+                                 std::to_string(n) + " attempts: " + why);
+                log_warn(air.id + ": " + f.path + ": landed unverified: " + why);
+            }
             fs::rename(part, dest);
             db.mark_copied(air.id, f.path);
-            db.log_action(air.id, "copy", f.path, "ok", "");
+            db.log_action(air.id, "copy", f.path, "ok", why.empty() ? "" : "unverified: " + why);
             ++res.copied;
             if (res.remaining > 0) --res.remaining;
             // Live progress after each file (cheap single-row upsert), so a long

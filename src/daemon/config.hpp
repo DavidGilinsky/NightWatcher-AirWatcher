@@ -4,8 +4,8 @@
 // Purpose:       Declarations for AirWatcher's INI-style daemon configuration
 //                (nwdb connection, own web UI, copier, extension registration).
 // Created:       2026-07-22
-// Last Modified: 2026-07-22
-// Version:       0.1.0
+// Last Modified: 2026-10-04
+// Version:       0.1.1
 // License:       GPL-3.0-or-later
 // ---------------------------------------------------------------------------
 #pragma once
@@ -42,7 +42,7 @@ struct Config {
     std::string incoming = "/astronomy/astro-imaging/incoming";  // ingest landing root
     std::string landing = "asiair";  // subdir of `incoming` frames are copied into ("" = incoming itself)
     int poll_interval_s = 60;     // per-ASIAir scan/copy cadence
-    int stable_seconds = 5;       // require a remote file's size be stable this long
+    int stable_seconds = 60;      // copy only after size+mtime held still this long
     std::string discover_subnet;  // default CIDR for the discovery scan (optional)
 
     // --- extension registration (read-only tab in the NightWatcher2 web UI) ---

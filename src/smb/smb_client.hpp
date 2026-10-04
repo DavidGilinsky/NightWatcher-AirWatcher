@@ -5,8 +5,8 @@
 //                guest SMB share on an ASIAir: list/walk/copy/delete. Each client
 //                owns its own SMBCCTX so one instance per worker thread is safe.
 // Created:       2026-07-22
-// Last Modified: 2026-07-22
-// Version:       0.1.0
+// Last Modified: 2026-10-04
+// Version:       0.1.1
 // License:       GPL-3.0-or-later
 // ---------------------------------------------------------------------------
 #pragma once
@@ -20,6 +20,7 @@ namespace airwatcher {
 struct SmbEntry {
     std::string path;       // path relative to the share root, '/'-separated
     long long   size = 0;
+    long long   mtime = 0;  // server-side modification time (unix seconds)
     bool        is_dir = false;
 };
 
@@ -47,6 +48,10 @@ public:
     // to the share root. Unreadable subdirectories are skipped, not fatal.
     std::vector<SmbEntry> walk(const std::string& rel_dir,
                                const std::vector<std::string>& suffixes);
+
+    // Size, mtime and kind of one remote path. Throws std::runtime_error if the
+    // path cannot be stat'ed (vanished, unreadable).
+    SmbEntry stat(const std::string& rel_path);
 
     // Copy a remote file (relative path) to local_path. Returns bytes copied.
     // Throws std::runtime_error on any I/O error.

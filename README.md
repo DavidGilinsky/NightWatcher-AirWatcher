@@ -27,6 +27,12 @@ NightWatcher2 web UI. NightWatcher2's core is not modified.
   by IP/hostname.
 - **Copies** new FITS frames from each ASIAir's `Autorun`/`Plan` folders into `incoming/`
   (guest SMB, no password), writing `*.part` then renaming so ingest only sees finished files.
+  A frame is copied only once its size and modification time have held still for
+  `stable_seconds` (the ASIAir rewrites each light in place to add its plate solution
+  15-30 s after capture; a copy taken during that rewrite is torn). After the copy the
+  source is re-checked and the landed file is verified as one whole FITS file; anything
+  else is discarded and retried once the source settles, and logged as `retry` in the
+  action log.
 - **Deletes** copied frames from the ASIAir, if you enable it (see *Delete* below).
 - **Schedules** copy and delete: immediately, in batches of N, after N frames, or at a
   time of day (local).

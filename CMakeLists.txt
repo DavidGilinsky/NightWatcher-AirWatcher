@@ -4,14 +4,14 @@
 # Purpose:       Top-level CMake build for AirWatcher: the airwatcherd daemon
 #                (copier + own web UI + NightWatcher extension registration).
 # Created:       2026-07-22
-# Last Modified: 2026-07-22
-# Version:       0.1.0
+# Last Modified: 2026-10-04
+# Version:       0.1.1
 # License:       GPL-3.0-or-later
 # ---------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.16)
 
 project(AirWatcher
-    VERSION 0.1.0
+    VERSION 0.1.1
     DESCRIPTION "Pull FITS frames off ZWO ASIAir devices into the NightWatcher ingest tree"
     HOMEPAGE_URL "https://github.com/DavidGilinsky/NightWatcher-AirWatcher"
     LANGUAGES C CXX)
@@ -89,7 +89,7 @@ target_include_directories(aw_discovery PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/d
 target_link_libraries(aw_discovery PUBLIC aw_warnings Threads::Threads)
 
 # ---- Copy engine + policy scheduler ----
-add_library(aw_copier STATIC src/copier/copier.cpp)
+add_library(aw_copier STATIC src/copier/copier.cpp src/copier/fits_check.cpp)
 target_include_directories(aw_copier PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/copier)
 target_link_libraries(aw_copier PUBLIC aw_core aw_db aw_smb Threads::Threads)
 
@@ -135,6 +135,14 @@ if(AW_BUILD_TESTS)
     # End-to-end copier against a mock ASIAir share; needs nwdb + a mock share.
     add_executable(copier_probe tests/copier_probe.cpp)
     target_link_libraries(copier_probe PRIVATE aw_copier)
+
+    # Pure unit checks: the whole-FITS-file verifier and the settle gate.
+    add_executable(fits_check_test tests/fits_check_test.cpp)
+    target_link_libraries(fits_check_test PRIVATE aw_copier)
+    add_test(NAME fits_check_test COMMAND fits_check_test)
+    add_executable(settle_test tests/settle_test.cpp)
+    target_link_libraries(settle_test PRIVATE aw_copier)
+    add_test(NAME settle_test COMMAND settle_test)
 endif()
 
 # ---- Install (self-contained bundle under CMAKE_INSTALL_PREFIX) ----

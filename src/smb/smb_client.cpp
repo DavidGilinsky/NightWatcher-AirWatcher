@@ -5,8 +5,8 @@
 //                a private SMBCCTX (thread-safe: one per worker); guest/anonymous
 //                auth via a per-context callback.
 // Created:       2026-07-22
-// Last Modified: 2026-07-22
-// Version:       0.1.0
+// Last Modified: 2026-10-04
+// Version:       0.1.1
 // License:       GPL-3.0-or-later
 // ---------------------------------------------------------------------------
 #include "smb_client.hpp"
@@ -143,6 +143,7 @@ std::vector<SmbEntry> SmbClient::list(const std::string& rel_dir) {
             struct stat st{};
             if (smbc_getFunctionStat(c)(c, url_for(e.path).c_str(), &st) == 0) {
                 e.size = static_cast<long long>(st.st_size);
+                e.mtime = static_cast<long long>(st.st_mtime);
             }
         }
         out.push_back(std::move(e));
@@ -173,6 +174,20 @@ std::vector<SmbEntry> SmbClient::walk(const std::string& rel_dir,
         }
     }
     return out;
+}
+
+SmbEntry SmbClient::stat(const std::string& rel_path) {
+    SMBCCTX* c = ctx_->ctx;
+    struct stat st{};
+    if (smbc_getFunctionStat(c)(c, url_for(rel_path).c_str(), &st) != 0) {
+        throw std::runtime_error("stat '" + rel_path + "': " + std::strerror(errno));
+    }
+    SmbEntry e;
+    e.path = rel_path;
+    e.size = static_cast<long long>(st.st_size);
+    e.mtime = static_cast<long long>(st.st_mtime);
+    e.is_dir = S_ISDIR(st.st_mode);
+    return e;
 }
 
 long long SmbClient::copy_to(const std::string& rel_path, const std::string& local_path) {

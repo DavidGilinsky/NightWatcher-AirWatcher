@@ -42,7 +42,13 @@ incoming = /astronomy/astro-imaging/incoming
 landing = asiair
 # Per-ASIAir scan/copy cadence, and the default subnet the UI's "Scan" button uses.
 poll_interval_s = 60
-stable_seconds = 5
+# A frame is copied only after its size and modification time on the ASIAir have
+# held still for this long (so in practice: unchanged across two scans). The
+# ASIAir rewrites each light in place 15-30 s after capture to add its plate
+# solution; copying on first sight lands a torn file. After the copy the source
+# is re-checked and the landed file is verified as a whole FITS file; a mismatch
+# is discarded and retried once the source settles again.
+stable_seconds = 60
 discover_subnet = 172.22.4.0/24
 
 [extension]

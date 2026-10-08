@@ -33,6 +33,12 @@ NightWatcher2 web UI. NightWatcher2's core is not modified.
   source is re-checked and the landed file is verified as one whole FITS file; anything
   else is discarded and retried once the source settles, and logged as `retry` in the
   action log.
+- **Passes filenames through unchanged**, including the custom name the ASIAir app
+  appends to every frame it saves. That is how a manual filter drawer gets its filter
+  into the archive: type `F_<name>` (for example `F_ALP_T_5nm`) in the ASIAir's custom
+  file-name field, and nightwatcher-ingest reads the token, writes it as `FILTER` and
+  files lights and flats under that filter. See *Manual filter drawer* in the
+  [nightwatcher-ingest README](https://github.com/DavidGilinsky/nightwatcher-ingest).
 - **Deletes** copied frames from the ASIAir, if you enable it (see *Delete* below).
 - **Schedules** copy and delete: immediately, in batches of N, after N frames, or at a
   time of day (local).

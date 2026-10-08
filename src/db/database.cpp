@@ -227,13 +227,15 @@ void Database::ensure_schema() {
 
     // Existing installs created these columns with the server-local default;
     // CREATE TABLE IF NOT EXISTS leaves them alone, so set the UTC default
-    // explicitly (metadata only, safe to repeat). Rows written before 0.1.2
-    // still hold local time in first_seen/created_at: see README, Upgrading.
+    // explicitly (metadata only, safe to repeat). MODIFY, not ALTER COLUMN
+    // SET DEFAULT: MariaDB 10.11 accepts the latter with an expression and
+    // silently keeps current_timestamp(). Rows written before 0.1.2 still
+    // hold local time in first_seen/created_at: see README, Upgrading.
     for (const char* alter : {
-             "ALTER TABLE airwatcher_files ALTER COLUMN first_seen SET DEFAULT (UTC_TIMESTAMP())",
-             "ALTER TABLE airwatcher_log ALTER COLUMN ts_utc SET DEFAULT (UTC_TIMESTAMP())",
-             "ALTER TABLE airwatcher_status ALTER COLUMN updated_at SET DEFAULT (UTC_TIMESTAMP())",
-             "ALTER TABLE asiairs ALTER COLUMN created_at SET DEFAULT (UTC_TIMESTAMP())"}) {
+             "ALTER TABLE airwatcher_files MODIFY first_seen DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP())",
+             "ALTER TABLE airwatcher_log MODIFY ts_utc DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP())",
+             "ALTER TABLE airwatcher_status MODIFY updated_at DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP())",
+             "ALTER TABLE asiairs MODIFY created_at DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP())"}) {
         exec(alter);
     }
 }

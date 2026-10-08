@@ -5,8 +5,8 @@
 //                AirWatcher tables (asiairs, files, status, log), plus the shared
 //                NightWatcher extension-registry and events tables.
 // Created:       2026-07-22
-// Last Modified: 2026-07-22
-// Version:       0.1.0
+// Last Modified: 2026-10-07
+// Version:       0.1.2
 // License:       GPL-3.0-or-later
 // ---------------------------------------------------------------------------
 #pragma once
@@ -110,6 +110,8 @@ public:
 
     // --- per-file copy/delete state (airwatcher_files) ---
     void mark_seen(const std::string& asiair_id, const std::string& path, long long size);
+    // Stored first_seen ("YYYY-MM-DD HH:MM:SS", UTC) of one file, or "" if unknown.
+    std::string first_seen_utc(const std::string& asiair_id, const std::string& path);
     std::vector<std::string> copied_paths(const std::string& asiair_id);         // copied_at set
     void mark_copied(const std::string& asiair_id, const std::string& path);
     std::vector<std::string> copied_not_deleted(const std::string& asiair_id);   // for the delete policy

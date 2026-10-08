@@ -68,6 +68,24 @@ account, seeds `/etc/airwatcher/airwatcher.conf`, writes secrets to
 `airwatcher` account write access to your `incoming/` directory, then browse to
 `http://<host>:8686/`.
 
+## Upgrading from 0.1.0 or 0.1.1
+
+Before 0.1.2 the `first_seen` column of `airwatcher_files` (and `created_at` of
+`asiairs`) took the table default, which is the database server's local clock,
+while every other timestamp was written in UTC. On an MST server those rows sit
+7 hours behind. 0.1.2 writes UTC everywhere and resets the column defaults on
+start, but it cannot tell which existing rows are local, so convert them once,
+with the service stopped, using the server's own offset:
+
+```sql
+SET @off = TIMESTAMPDIFF(SECOND, NOW(), UTC_TIMESTAMP());
+UPDATE airwatcher_files SET first_seen = first_seen + INTERVAL @off SECOND;
+UPDATE asiairs SET created_at = created_at + INTERVAL @off SECOND;
+```
+
+All DATETIME columns AirWatcher owns are UTC; the web UI appends `Z` when it
+renders them.
+
 ## Delete over SMB
 
 ZWO documents the ASIAir share as read-only, but at least some firmware serves it

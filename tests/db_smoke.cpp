@@ -5,12 +5,14 @@
 //                real MariaDB (env NWDB_PASSWORD etc.). Creates the schema, does
 //                an asiair + file-state + status + extension round-trip, cleans up.
 // Created:       2026-07-22
-// Last Modified: 2026-07-22
-// Version:       0.1.0
+// Last Modified: 2026-10-07
+// Version:       0.1.2
 // License:       GPL-3.0-or-later
 // ---------------------------------------------------------------------------
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <ctime>
 
 #include "database.hpp"
 
@@ -49,6 +51,25 @@ int main() {
         db.mark_seen(ID, "Autorun/Light/M31/x_001.fit", 12345);
         db.mark_seen(ID, "Autorun/Light/M31/x_002.fit", 23456);
         db.mark_seen(ID, "Autorun/Light/M31/x_002.fit", 23456);  // idempotent
+        {
+            // first_seen must be UTC (it followed the server's local clock before 0.1.2).
+            const std::string seen = db.first_seen_utc(ID, "Autorun/Light/M31/x_001.fit");
+            std::tm tm{};
+            std::memset(&tm, 0, sizeof tm);
+            const bool parsed = seen.size() == 19 &&
+                                sscanf(seen.c_str(), "%d-%d-%d %d:%d:%d", &tm.tm_year, &tm.tm_mon,
+                                       &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec) == 6;
+            CHECK(parsed);
+            if (parsed) {
+                tm.tm_year -= 1900;
+                tm.tm_mon -= 1;
+                const std::time_t stored = timegm(&tm);
+                const double skew = std::difftime(std::time(nullptr), stored);
+                CHECK(skew > -120 && skew < 120);   // within 2 min of this host's UTC clock
+                if (!(skew > -120 && skew < 120))
+                    std::printf("first_seen %s is %.0f s off UTC now\n", seen.c_str(), skew);
+            }
+        }
         db.mark_copied(ID, "Autorun/Light/M31/x_001.fit");
         CHECK(db.copied_paths(ID).size() == 1);
         CHECK(db.copied_not_deleted(ID).size() == 1);

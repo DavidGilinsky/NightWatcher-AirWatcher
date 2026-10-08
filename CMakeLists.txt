@@ -4,14 +4,14 @@
 # Purpose:       Top-level CMake build for AirWatcher: the airwatcherd daemon
 #                (copier + own web UI + NightWatcher extension registration).
 # Created:       2026-07-22
-# Last Modified: 2026-10-04
-# Version:       0.1.1
+# Last Modified: 2026-10-07
+# Version:       0.1.2
 # License:       GPL-3.0-or-later
 # ---------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.16)
 
 project(AirWatcher
-    VERSION 0.1.1
+    VERSION 0.1.2
     DESCRIPTION "Pull FITS frames off ZWO ASIAir devices into the NightWatcher ingest tree"
     HOMEPAGE_URL "https://github.com/DavidGilinsky/NightWatcher-AirWatcher"
     LANGUAGES C CXX)
